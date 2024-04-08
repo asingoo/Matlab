@@ -11,22 +11,14 @@ W=1/sqrt(3)*[-1 -1 1 1; -1 1 1 -1; 1 1 1 1;]; % Mounting matrix
 
 
 %% Case 1 
-q_eci_b=[0; 0; 0; 1]; % initial attitude
-
 axis=[1; 0; 0]; % rotaion axis
 angle_com=deg2rad(10); % rotation angle (rad)
 q_eci_c=[axis*sin(angle_com/2); cos(angle_com/2)]; %Attitude command quaternion
 
-q_e=quatproduct(q_eci_c,quatinv(q_eci_b)); %initial error quaternion
-
-
-w=[0; 0; 0]; %initial angular rate
-trw=[0; 0; 0; 0;]; %initial torque of reaction wheel
-h=[0; 0; 0; 0]; %initial angular momentum
 Kp=30; %P gain
 Kd=-10; %D gain
 
-x=[q_eci_b; w; trw;]; %initial state
+x=[0; 0; 0; 1; 0; 0; 0; 0; 0; 0; 0;]; %initial state (11 states)
 x_history=[];
 
 dt=0.01; %sec
@@ -39,6 +31,13 @@ while abs(2*acos(q_eci_c(4))-2*acos(x(4)))>0.001
 end
 
 maneuver_time=t;
+time=0:dt:maneuver_time;
+q_e_history=zeros(4,length(x_history));
+for i=1:length(q_e_history)
+       q_e_history(:,i)=quatproduct( q_eci_c,invquat( x_history(1:4,i) ) );
+end
+
+plot(time,q_e_history(1,:),time,q_e_history(2,:),time,q_e_history(3,:),time,q_e_history(4,:))
 
 
 %% function
@@ -50,7 +49,7 @@ q_out=[p4 p3 -p2 p1;
       -p1 -p2 -p3 p4]*q;
 end
 
-function q_out=quatinv(q)
+function q_out=invquat(q)
 q(1)=-q(1);
 q(2)=-q(2);
 q(3)=-q(3);
@@ -64,7 +63,7 @@ end
 
 function xdot=eq_xdot(t,x,Kd,Kp,J,W,q_eci_c)
 q=x(1:4);
-q_e=quatproduct(q_eci_c,quatinv(q));
+q_e=quatproduct(q_eci_c,invquat(q));
 w=x(5:7);
 h=x(8:11);
 Trw=[2*Kp*q_e(1)*q_e(4)+Kd*w(1);
