@@ -15,8 +15,8 @@ axis=[1; 0; 0]; % rotaion axis
 angle_com=deg2rad(10); % rotation angle (rad)
 q_eci_c=[axis*sin(angle_com/2); cos(angle_com/2)]; %Attitude command quaternion
 
-Kp=30; %P gain
-Kd=-10; %D gain
+Kp=10; %P gain
+Kd=-30; %D gain
 
 x=[0; 0; 0; 1; 0; 0; 0; 0; 0; 0; 0;]; %initial state (11 states)
 x_history=[];
@@ -24,21 +24,38 @@ x_history=[];
 dt=0.01; %sec
 t=0; %sec
 
-while abs(2*acos(q_eci_c(4))-2*acos(x(4)))>0.001
+error_angle=rad2deg(2*acos(q_eci_c(4))-2*acos(x(4)));
+
+cnt=0;
+while cnt<100
+    t=t+dt;
     x=RK4(@eq_xdot,t,x,Kd,Kp,J,W,q_eci_c,dt);
     x_history=[x_history, x];
-    t=t+dt;
+    error_angle=rad2deg(2*acos(q_eci_c(4))-2*acos(x(4)));
+    if abs(error_angle)<0.001
+        cnt=cnt+1;
+    else
+        cnt=0;
+    end
 end
-
 maneuver_time=t;
-time=0:dt:maneuver_time;
+time=linspace(0,maneuver_time,length(x_history));
+
 q_e_history=zeros(4,length(x_history));
 for i=1:length(q_e_history)
        q_e_history(:,i)=quatproduct( q_eci_c,invquat( x_history(1:4,i) ) );
 end
 
+figure(1)
 plot(time,q_e_history(1,:),time,q_e_history(2,:),time,q_e_history(3,:),time,q_e_history(4,:))
+legend('q1','q2','q3','q4')
 
+
+figure(2)
+plot(time,rad2deg(2*acos(q_e_history(4,:))))
+hold on
+plot(time,rad2deg(2*acos(x_history(4,:))))
+legend('angle error','angle')
 
 %% function
 function q_out=quatproduct(p,q)
